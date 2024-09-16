@@ -14,7 +14,7 @@ This repository contains additional code as well as original or modified code fr
 - https://github.com/tue-alga/debias-mean-projection
 
 ## Setup preparation
-- This code has been tested using Python 3.7 and the conda environment on Linux.
+- This code has been tested using Python 3.7 and the conda environment on Linux. However, some modifications can allow the code to run in Python3.10, which is not currently included in this version of the project.
 - You can use the *requirements.txt* file to set up the Python environment.
 - To run the code directly without applying any modifications you need to add data to the *datasets* folder that should have the following structure:
 
