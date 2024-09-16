@@ -160,5 +160,7 @@ cython_debug/
 #.idea/
 
 .idea/
-results/
-datasets/
+results/100k_batches_SGD_stable/
+datasets/ud_data_masked
+datasets/ud_data_normal
+

@@ -19,7 +19,7 @@ This repository contains additional code as well as original or modified code fr
 ## Setup preparation
 - This code has been tested using Python 3.7 and the conda environment on Linux.
 - You can use the *requirements.txt* file to set up the Python environment.
-- To run the code directly without applying any modifications you need to create a folder called *datasets* with the following structure:
+- To run the code directly without applying any modifications you need to add data to the *datasets* folder that should have the following structure:
 
 ```
 .
@@ -70,7 +70,9 @@ This repository contains additional code as well as original or modified code fr
 - The original splits come from the Amnesic Probing paper https://direct.mit.edu/tacl/article/doi/10.1162/tacl_a_00359/98091/Amnesic-Probing-Behavioral-Explanation-with and can be accessed here: https://nlp.biu.ac.il/~lazary/amnesic_probing/
 
 ## Running the code
-The repository contains scripts for the following capabilities:
+The repository contains scripts to execute all the results. Once you have set up the environment
+and put all the necessary data in the correct folder, you can simply run the scripts one at a time in an order
+as follows:
 
 a) **Removing the target attribute**
 
