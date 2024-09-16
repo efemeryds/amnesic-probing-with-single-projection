@@ -45,6 +45,7 @@ if __name__ == "__main__":
     run_selectivity_control("dep", "inlp",
                             "results/100k_batches_SGD_stable/masked/dep/removed_inlp", "datasets/ud_data_masked",
                             'bert-base-uncased')
+
     run_selectivity_control("dep", "mp", "results/100k_batches_SGD_stable/masked/dep/removed_mp",
                             "datasets/ud_data_masked",
                             'bert-base-uncased')
