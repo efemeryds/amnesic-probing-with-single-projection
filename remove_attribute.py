@@ -203,9 +203,7 @@ def run_pipeline(task, dir_path, out_dir_inlp_dep, out_dir_mp_dep):
     print("Rank dev", np.linalg.matrix_rank(x_dev))
 
     print("Applying INLP..............")
-
     remove_attribute_inlp(x_train, y_train, x_dev, y_dev, out_dir_inlp_dep)
-
     directions_mp = get_directions(x_train, y_train)
 
     print("Applying Mean Projection..............")

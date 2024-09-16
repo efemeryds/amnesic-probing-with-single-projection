@@ -147,7 +147,6 @@ def evaluation_and_control_per_task(task: str, method_type: str, method_folder_p
     lm_results = eval_lm_performance(tokenizer, out_embed, bias, x_dev, words_dev, P,
                                      n_coords=n_coordinates, device=device)
 
-
     print('Task Control')
     x_train_shuffled, y_train_shuffled = shuffle(x_train, y_train, random_state=0, n_samples=min(len(y_train), 100000))
     x_train_no_label = data_projection(x_train_shuffled, P)
@@ -195,8 +194,8 @@ def evaluation_and_control_per_task(task: str, method_type: str, method_folder_p
 
 if __name__ == "__main__":
     ########## Universal Dependency dataset #############
-
     ######### MASKED ################
+
     evaluation_and_control_per_task("dep", "inlp",
                                     "results/100k_batches_SGD_stable/masked/dep/removed_inlp",
                                     "datasets/ud_data_masked",

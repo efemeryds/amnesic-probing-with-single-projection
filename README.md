@@ -65,7 +65,7 @@ This repository contains additional code as well as original or modified code fr
 
 - You also need to create in a folder *results* another folder with a proper name to store the output results.
 
-## Access to data
+## Access to the data
 
 - The original splits come from the Amnesic Probing paper https://direct.mit.edu/tacl/article/doi/10.1162/tacl_a_00359/98091/Amnesic-Probing-Behavioral-Explanation-with and can be accessed here: https://nlp.biu.ac.il/~lazary/amnesic_probing/
 
@@ -101,11 +101,12 @@ can provide us with the following information:
 
 c) **Running baseline selectivity**
 
-*get_vanilla_selectivity.py*
+Selectivity check is demanding in terms of computation. To run the basic selectivity after the
+information removal we need to run the script in *get_vanilla_selectivity.py* file.
 
 d) **Running selectivity after the modifications**
 
-*get_selectivity_control.py*
+To get the selectivity after injecting back the gold information to the embedding we run a script in the *get_selectivity_control.py* file.
 
 
 
