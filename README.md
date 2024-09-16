@@ -63,7 +63,7 @@ This repository contains additional code as well as original or modified code fr
         └── tokens.pickle
 ```
 
-- You also need to add a folder called *results* with a proper name to store the output results.
+- You also need to create in a folder *results* another folder with a proper name to store the output results.
 
 ## Access to data
 
