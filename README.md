@@ -101,12 +101,10 @@ can provide us with the following information:
 
 c) **Running baseline selectivity**
 
-Selectivity check is demanding in terms of computation. To run the basic selectivity after the
-information removal we need to run the script in *get_vanilla_selectivity.py* file.
-
+The selectivity check is computationally demanding. To perform basic selectivity after information removal, we need to run the script in the *get_vanilla_selectivity.py* file.
 d) **Running selectivity after the modifications**
 
-To get the selectivity after injecting back the gold information to the embedding we run a script in the *get_selectivity_control.py* file.
+To get the selectivity after injecting the gold information back into the embedding, we run a script in the *get_selectivity_control.py* file.
 
 
 
