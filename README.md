@@ -4,10 +4,7 @@ With Amnesic Probing approach we try to answer the following question:
 
 *Is the target property of our interest important for a model to solve a given task?*
 
-To verify this claim we can try to remove the target property as precisely as possible
-and check if the performance of a model changes. If after the removal the performance drops significantly
-we can suspect that the information was important if we take into account control tasks. 
-However if during the removal of the information too much is removed the result is not reliable. In this repository two methods for the target information removal are tested: INLP and Mean Projection (MP).
+To verify this claim, we can try to remove the target property as precisely as possible and see if the performance of a model varies. If the performance drops significantly after the removal, we can suspect that the information was important, taking into account control tasks. However, if too much information is removed, the result is not reliable. This repository tests two methods for removing target information: INLP and Mean Projection (MP).
 
 ## References to other repositories
 This repository contains additional code as well as original or modified code from the following repositories:
