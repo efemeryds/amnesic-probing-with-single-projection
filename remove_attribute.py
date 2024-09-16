@@ -12,6 +12,7 @@ from projection_methods.INLPMethod import INLPMethod
 from projection_methods.MPMethod import MPMethod, get_directions
 import time
 from data_processing.UDDataProcessing import UDDataProcessing
+
 np.random.seed(10)
 
 
@@ -34,8 +35,8 @@ def remove_attribute_inlp(x_train, y_train, x_dev, y_dev, out_dir_inlp, num_clfs
     n_classes = len(set(y_train))
     majority = Counter(y_dev).most_common(1)[0][1] / float(len(y_dev))
 
-    print('number of classes:', n_classes)
-    print('most common class (dev):', majority)
+    print('The number of classes:', n_classes)
+    print('The most common class (dev):', majority)
 
     x_train, y_train = shuffle(x_train, y_train, random_state=0, n_samples=len(y_train))
     # Run INLP method
@@ -54,7 +55,7 @@ def remove_attribute_inlp(x_train, y_train, x_dev, y_dev, out_dir_inlp, num_clfs
     np.save(out_dir_inlp + '/P.npy', best_projection[0])
 
     removed_directions = int((best_projection[1]) * n_classes)
-    print("removed_directions: ", removed_directions)
+    print("The number of removed_directions: ", removed_directions)
 
     # In case of 2 classes, each inlp iteration we remove a single direction
     if out_dir_inlp == 2:
@@ -63,7 +64,7 @@ def remove_attribute_inlp(x_train, y_train, x_dev, y_dev, out_dir_inlp, num_clfs
     x_dev_projected = np.dot(x_dev, output_p)  # (projection_mp.dot(x_dev.T)).T
     x_train_projected = np.dot(x_train, output_p)
 
-    print("Accuracy before removal: ", accuracy_per_iteration[0])
+    print("The accuracy before removal: ", accuracy_per_iteration[0])
 
     del all_projections
     del inlp_object
@@ -75,7 +76,7 @@ def remove_attribute_inlp(x_train, y_train, x_dev, y_dev, out_dir_inlp, num_clfs
 
     test_network_after = INLPMethod(model, params)
     score_after, weights = test_network_after.train_network(x_train_projected, y_train, x_dev_projected, y_dev)
-    print("Accuracy after removal: ", score_after)
+    print("The accuracy after removal: ", score_after)
 
     del output_p
     del model
@@ -108,7 +109,7 @@ def remove_attribute_inlp(x_train, y_train, x_dev, y_dev, out_dir_inlp, num_clfs
     print(f"The time it takes to remove attribute using INLP: ",
           (end - start) / 60, " minutes")
 
-    print('done iterations. exiting................')
+    print('The processing is finished. Exiting......')
     del meta_dic
     del x_dev
     del accuracy_per_iteration
@@ -195,17 +196,14 @@ def remove_attribute_mp(task, x_train, y_train, x_dev, y_dev, out_dir_mp, direct
 def run_pipeline(task, dir_path, out_dir_inlp_dep, out_dir_mp_dep):
     print(f"Removing {task} attribute.............")
 
-
     process_data = UDDataProcessing(dir_path + "/train/", dir_path + "/dev/", task)
     x_train, y_train, _, x_dev, y_dev, _ = process_data.return_data_files()
 
-    # print("Rank train", np.linalg.matrix_rank(x_train))
+    print("Rank train", np.linalg.matrix_rank(x_train))
     print("Rank dev", np.linalg.matrix_rank(x_dev))
 
     print("Applying INLP..............")
-
-    # remove_attribute_inlp(x_train, y_train, x_dev, y_dev, out_dir_inlp_dep)
-
+    remove_attribute_inlp(x_train, y_train, x_dev, y_dev, out_dir_inlp_dep)
     directions_mp = get_directions(x_train, y_train)
 
     print("Applying Mean Projection..............")
@@ -221,7 +219,6 @@ def run_pipeline(task, dir_path, out_dir_inlp_dep, out_dir_mp_dep):
 
 
 if __name__ == "__main__":
-
     # Universal Dependency dataset
     # MASKED
 
@@ -235,7 +232,6 @@ if __name__ == "__main__":
                  "results/100k_batches_SGD_stable/masked/cpos/removed_mp")
 
     # NON-MASKED -> NORMAL
-
     run_pipeline("dep", "datasets/ud_data_normal", "results/100k_batches_SGD_stable/normal/dep/removed_inlp",
                  "results/100k_batches_SGD_stable/normal/dep/removed_mp")
 

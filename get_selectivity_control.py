@@ -40,8 +40,8 @@ def run_selectivity_control(task: str, method_type: str, method_folder_path: str
 
 if __name__ == "__main__":
     ########## Universal Dependency dataset ##############
-
     ########### MASKED ###################
+
     run_selectivity_control("dep", "inlp",
                             "results/100k_batches_SGD_stable/masked/dep/removed_inlp", "datasets/ud_data_masked",
                             'bert-base-uncased')
