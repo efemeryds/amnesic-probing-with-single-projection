@@ -74,8 +74,8 @@ a) **Removing the target attribute**
 The *remove_attribute.py* file contains the code that allows to remove target information
 using INLP and MP for comparison. To obtain all combinations, inside the file the
 pipeline is run 6 times. This allows us to get the MP and INLP results for all three linguistic
-capabilities (pos, tag, and dep) and also for all two setups (ud data masked and ud data normal). Here
-we get the following information:
+capabilities (pos, tag, and dep) and also for all two setups (ud data masked and ud data normal). By running this file you can collect the following data:
+
 - Accuracy before any change
 - Accuracy after removing target property with INLP and MP
 - Number of directions removed for INLP and MP
@@ -84,9 +84,8 @@ we get the following information:
 
 b) **Running the evaluation and control**
 
-After the target linguistic capability is removed we want to also obtain additional
-evaluation of the results. In *evaluate_and_control.py* file you can find the script that
-can provide us with the following information:
+Once the target language capability has been removed, we also want to carry out an additional evaluation of the results. In the file *evaluate_and_control.py* you will find the script that can give us the following results:
+
 - Accuracy for the random control for INLP and MP
 - Accuracy for the dropout control for INLP and MP
 - Average cosine similarity of the original data with data after applying INLP and MP
