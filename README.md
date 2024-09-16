@@ -67,9 +67,7 @@ This repository contains additional code as well as original or modified code fr
 - The original splits come from the Amnesic Probing paper https://direct.mit.edu/tacl/article/doi/10.1162/tacl_a_00359/98091/Amnesic-Probing-Behavioral-Explanation-with and can be accessed here: https://nlp.biu.ac.il/~lazary/amnesic_probing/
 
 ## Running the code
-The repository contains scripts to execute all the results. Once you have set up the environment
-and put all the necessary data in the correct folder, you can simply run the scripts one at a time in an order
-as follows:
+The repository contains scripts to get all the results. Once you have set up the environment and placed all the necessary data in the correct folder, you can simply run the scripts one at a time in the order shown below:
 
 a) **Removing the target attribute**
 
