@@ -76,7 +76,7 @@ class INLPMethod:
             # Construct an orthonormal basis for the range of W using SVD
             w_basis = scipy.linalg.orth(W.T)  # orthogonal basis
         w_basis * np.sign(w_basis[0][0])  # handle sign ambiguity
-        P_W = w_basis.dot(w_basis.T) # orthogonal projection on W's rowspace
+        P_W = w_basis.dot(w_basis.T)  # orthogonal projection on W's rowspace
         # Shape -> (768, 768)
         del w_basis
         del W

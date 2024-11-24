@@ -1,9 +1,11 @@
-from recreating_amnesic_paper.evaluation.helper_functions import dropout_control, rand_direction_control, \
+from evaluation.helper_functions import dropout_control, rand_direction_control, \
     define_network, data_projection
 import torch
 import numpy as np
 from collections import Counter
+
 np.random.seed(10)
+
 
 class EvalTopKPerformance:
     def __init__(self, model_name: str):

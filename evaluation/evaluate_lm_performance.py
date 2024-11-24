@@ -3,16 +3,32 @@ import numpy as np
 from evaluation.helper_functions import define_network, dropout_control, \
     rand_direction_control, dkl_gpu
 from sklearn.metrics.pairwise import cosine_similarity
-
+import torch
+from projection_methods.LEACE import LeaceEraser
 np.random.seed(10)
 
 
-def data_projection(x, projection_matrix):
-    return x.dot(projection_matrix)
+def data_projection(x, projection):
+    """
+    Projects data using the provided projection operator or matrix.
+
+    Args:
+        x: Input data.
+        projection: Projection operator, which can be a matrix (np.ndarray) or LeaceEraser.
+
+    Returns:
+        Projected data.
+    """
+    if isinstance(projection, np.ndarray):
+        return x.dot(projection)
+    elif isinstance(projection, LeaceEraser):
+        return projection(torch.tensor(x, dtype=torch.float32)).numpy()
+    else:
+        raise ValueError("Projection must be either a numpy matrix or a LeaceEraser object.")
 
 
 def get_lm_predictions_gpu(w, b, x, y, projection: np.ndarray = None, device: str = 'cpu'):
-    network = define_network(w, b, projection_mat=projection, device=device)
+    network = define_network(w, b, projection=projection, device=device)
     accuracy = network.eval(x, y)
     del network
     gc.collect()

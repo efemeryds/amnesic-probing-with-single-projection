@@ -10,6 +10,7 @@ from typing import List
 from collections import defaultdict, Counter
 from transformers import BertTokenizer, BertForMaskedLM
 import pickle
+from projection_methods.LEACE import LeaceEraser
 
 np.random.seed(10)
 
@@ -56,10 +57,6 @@ def get_lm_vals(model_name):
     return lm_model, tokenizer, out_embed, bias
 
 
-def data_projection(x, projection_matrix):
-    return x.dot(projection_matrix)
-
-
 def most_probable_label(words, labels):
     words_labels = defaultdict(list)
 
@@ -72,20 +69,44 @@ def most_probable_label(words, labels):
     return most_probable_label_per_word
 
 
-def define_network(W: np.ndarray, b: np.ndarray, projection_mat: np.ndarray = None, device: str = 'cpu'):
+def define_network(W: np.ndarray, b: np.ndarray, projection=None, device: str = 'cpu'):
+    """
+    Defines a PyTorch network for LM predictions with optional projection.
+
+    Args:
+        W: Weight matrix of the LM.
+        b: Bias vector of the LM.
+        projection: Projection matrix (numpy array) or LeaceEraser.
+        device: Device for computation ('cpu' or 'cuda').
+
+    Returns:
+        A PytorchClassifier for evaluation.
+    """
     embedding_net = torch.nn.Linear(in_features=W.shape[1], out_features=W.shape[0])
     embedding_net.weight.data = torch.tensor(W)
     embedding_net.bias.data = torch.tensor(b)
 
-    if projection_mat is not None:
-        projection_net = torch.nn.Linear(in_features=projection_mat.shape[1],
-                                         out_features=projection_mat.shape[0],
-                                         bias=False)
-        projection_net.weight.data = torch.tensor(projection_mat, dtype=torch.float)
-        for p in projection_net.parameters():
-            p.requires_grad = False
-        word_prediction_net = torch.nn.Sequential(projection_net, embedding_net)
+    if projection is not None:
+        if isinstance(projection, np.ndarray):
+            projection_net = torch.nn.Linear(in_features=projection.shape[1],
+                                             out_features=projection.shape[0],
+                                             bias=False)
+            projection_net.weight.data = torch.tensor(projection, dtype=torch.float)
+            for p in projection_net.parameters():
+                p.requires_grad = False
+            word_prediction_net = torch.nn.Sequential(projection_net, embedding_net)
+        elif isinstance(projection, LeaceEraser):
+            def leace_forward(x):
+                return projection(torch.tensor(x, dtype=torch.float32).to(device)).to(device)
 
+            class LeaceProjection(torch.nn.Module):
+                def forward(self, x):
+                    return leace_forward(x)
+
+            projection_layer = LeaceProjection()
+            word_prediction_net = torch.nn.Sequential(projection_layer, embedding_net)
+        else:
+            raise ValueError("Projection must be a numpy array or LeaceEraser.")
     else:
         word_prediction_net = torch.nn.Sequential(embedding_net)
 
@@ -176,30 +197,57 @@ def rand_direction_control(x, n_coord):
     return x_rand_direction
 
 
-def get_lm_softmax_gpu(w, b, x, y, device: str):
-    network = define_network(w, b, device=device)
+def get_lm_softmax_gpu(w, b, x, y, projection=None, device: str = 'cpu'):
+    """
+    Computes the softmax probabilities for LM predictions.
+
+    Args:
+        w: Weight matrix of the LM.
+        b: Bias vector of the LM.
+        x: Input data.
+        y: Target labels.
+        projection: Projection matrix (numpy array) or LeaceEraser.
+        device: Device for computation ('cpu' or 'cuda').
+
+    Returns:
+        Softmax probabilities.
+    """
+    network = define_network(w, b, projection=projection, device=device)
     distribution = network.get_probs(x, y)
     del network
     gc.collect()
     return distribution
 
 
-def dkl_gpu(w, b, x_orig, x_diff, y, plain_probs: np.ndarray = None, device: str = 'cpu'):
+def dkl_gpu(w, b, x_orig, x_diff, y, plain_probs: np.ndarray = None, projection=None, device: str = 'cpu'):
+    """
+    Computes the KL divergence between two sets of LM predictions.
+
+    Args:
+        w: Weight matrix of the LM.
+        b: Bias vector of the LM.
+        x_orig: Original input data.
+        x_diff: Modified input data.
+        y: Target labels.
+        plain_probs: Precomputed probabilities for the original data (optional).
+        projection: Projection matrix (numpy array) or LeaceEraser.
+        device: Device for computation ('cpu' or 'cuda').
+
+    Returns:
+        Mean KL divergence and probabilities for the original data.
+    """
     print("dkl_gpu - get probs")
     if plain_probs is None:
-        probs = get_lm_softmax_gpu(w, b, x_orig, y, device=device)
+        probs = get_lm_softmax_gpu(w, b, x_orig, y, projection=projection, device=device)
     else:
         probs = plain_probs
-    probs_diff = get_lm_softmax_gpu(w, b, x_diff, y, device=device)
+    probs_diff = get_lm_softmax_gpu(w, b, x_diff, y, projection=projection, device=device)
 
     print("dkl_gpu - get all distributions")
     all_dkl = []
     for batch_prob, batch_prob_diff in tqdm(zip(probs, probs_diff)):
         batch_dkl = kl_div(torch.tensor(batch_prob_diff).float().log(),
                            torch.tensor(batch_prob).float(), reduction='none').sum(axis=1).cpu().numpy()
-
-        # batch_dkl = kl_div(torch.tensor(batch_prob_diff).float().to(device).log(),
-        #                    torch.tensor(batch_prob).float().to(device), reduction='none').sum(axis=1).cpu().numpy()
 
         all_dkl.extend(batch_dkl)
 
@@ -209,3 +257,4 @@ def dkl_gpu(w, b, x_orig, x_diff, y, plain_probs: np.ndarray = None, device: str
     dkl_mean = np.mean(all_dkl)
 
     return dkl_mean, probs
+
