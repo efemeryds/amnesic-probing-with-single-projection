@@ -73,10 +73,10 @@ class PytorchClassifier:
         selectivity_results = {}
         print("Starts training....")
 
-        x_train = torch.tensor(x_train)  # .to(self.device)
-        y_train = torch.tensor(y_train)  # .to(self.device)
-        x_dev = torch.tensor(x_dev)  # .to(self.device)
-        y_dev = torch.tensor(y_dev)  # .to(self.device)
+        x_train = torch.tensor(x_train)# .to(self.device)
+        y_train = torch.tensor(y_train)# .to(self.device)
+        x_dev = torch.tensor(x_dev)# .to(self.device)
+        y_dev = torch.tensor(y_dev)# .to(self.device)
 
         print("Tensor Dataset")
         train_dataset = torch.utils.data.TensorDataset(x_train, y_train)

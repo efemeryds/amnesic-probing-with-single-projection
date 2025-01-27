@@ -128,6 +128,25 @@ class LeaceEraser:
         return LeaceFitter.fit(x, z, **kwargs).eraser
 
     @property
+    def P_with_bias(self) -> Tensor:
+        """The projection matrix with bias adjustment."""
+        eye = torch.eye(
+            self.proj_left.shape[0],
+            device=self.proj_left.device,
+            dtype=self.proj_left.dtype,
+        )
+        # Base projection matrix
+        P = eye - self.proj_left @ self.proj_right
+
+        # Bias adjustment
+        if self.bias is not None:
+            # Center the bias
+            bias_projection = torch.outer(self.bias, self.bias)
+            # Adjust P to include the bias impact
+            P = P - bias_projection
+        return P
+
+    @property
     def P(self) -> Tensor:
         """The projection matrix."""
         eye = torch.eye(

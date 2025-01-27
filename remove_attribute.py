@@ -10,10 +10,133 @@ from sklearn.utils import shuffle
 from collections import Counter
 from projection_methods.INLPMethod import INLPMethod
 from projection_methods.MPMethod import MPMethod, get_directions
+from projection_methods.LEACE import LeaceEraser, LeaceFitter
+import torch
 import time
 from data_processing.UDDataProcessing import UDDataProcessing
 
 np.random.seed(10)
+
+
+def save_leace_projection(eraser, file_path):
+    """
+    Save LEACE projection matrices and bias to a file.
+    """
+    data = {
+        'proj_left': eraser.proj_left.cpu().numpy(),
+        'proj_right': eraser.proj_right.cpu().numpy(),
+        'bias': eraser.bias.cpu().numpy() if eraser.bias is not None else None
+    }
+
+    if eraser.bias is None:
+        print("Bias is None, ensure this is intentional.")
+
+    torch.save(data, file_path)  # Use PyTorch serialization for consistency
+    print(f"LEACE projection saved to {file_path}")
+
+
+def load_leace_projection(file_path, device="cpu"):
+    """
+    Load LEACE projection matrices and bias from a file and reconstruct the eraser.
+    """
+    data = torch.load(file_path)
+    proj_left = torch.tensor(data['proj_left'], device=device)
+    proj_right = torch.tensor(data['proj_right'], device=device)
+    bias = torch.tensor(data['bias'], device=device) if data['bias'] is not None else None
+    if bias is None:
+        print("Bias is None, ensure this is intentional.")
+
+    print(f"LEACE projection loaded from {file_path}")
+    return LeaceEraser(proj_left=proj_left, proj_right=proj_right, bias=bias)
+
+
+def remove_attribute_leace(task, x_train, y_train, x_dev, y_dev, out_dir_leace):
+    folder_exists = os.path.exists(out_dir_leace)
+    if not folder_exists:
+        os.makedirs(out_dir_leace)
+
+    print(f"Running LEACE method for task: {task}..")
+    n_classes = len(set(y_train))
+    majority = Counter(y_dev).most_common(1)[0][1] / float(len(y_dev))
+
+    # Convert data to torch tensors for LEACE
+    x_train_tensor = torch.tensor(x_train, dtype=torch.float32)
+
+    n_classes = len(set(y_train))  # Total number of unique labels in y_train
+    # special way for leace
+    y_train_tensor = torch.nn.functional.one_hot(torch.tensor(y_train), num_classes=n_classes).float()
+
+    x_dev_tensor = torch.tensor(x_dev, dtype=torch.float32)
+
+    # Fit the LEACE model
+
+    eraser = LeaceEraser.fit(x_train_tensor, y_train_tensor)
+
+    final_path = out_dir_leace + "/trained_parameters.npz"
+    # Save the projection
+    save_leace_projection(eraser, final_path)
+
+    # Load the projection
+    loaded_eraser = load_leace_projection(final_path)
+
+    x_dev_cleaned_leace = loaded_eraser(x_dev_tensor).numpy()
+    x_train_cleaned_leace = loaded_eraser(x_train_tensor).numpy()
+
+    # Test accuracy before and after removal
+    model = SGDClassifier
+    loss = 'log'
+    warm_start = True
+    early_stopping = False
+    max_iter = 10000
+
+    params = {'warm_start': warm_start, 'loss': loss, 'random_state': 0, 'early_stopping': early_stopping,
+              'max_iter': max_iter}
+
+    test_network_before = INLPMethod(model, params)
+    score_before, weights = test_network_before.train_network(x_train, y_train, x_dev, y_dev)
+    print("Accuracy before removal: ", score_before)
+
+
+    del x_train
+    del test_network_before
+    gc.collect()
+
+    p_rank = np.linalg.matrix_rank(x_dev_cleaned_leace).tolist()
+    rank_before = np.linalg.matrix_rank(x_dev).tolist()
+
+    del x_dev
+    gc.collect()
+
+    test_network_after = INLPMethod(model, params)
+    score_after, weights = test_network_after.train_network(x_train_cleaned_leace, y_train, x_dev_cleaned_leace,
+                                                            y_dev)
+    print("Accuracy after removal: ", score_after)
+
+    # Save metadata
+    meta_dic = {'best_i': 0,
+                'n_classes': n_classes,
+                'majority': majority,
+                'removed_directions': n_classes,
+                'probing_accuracy': score_before,
+                'final_accuracy': score_after,
+                'p_rank': p_rank,
+                'p_train_rank': rank_before,
+                'accuracy_per_iteration': score_after,
+                'loss': loss,
+                'warm_start': warm_start,
+                'early_stopping': early_stopping,
+                'max_iter': max_iter}
+
+    json.dump(meta_dic, open(out_dir_leace + '/meta.json', 'w'))
+
+    del model
+    del x_dev_cleaned_leace
+    del x_train_cleaned_leace
+    del test_network_after
+    del meta_dic
+    gc.collect()
+    print('done iterations. exiting................')
+    return
 
 
 def remove_attribute_inlp(x_train, y_train, x_dev, y_dev, out_dir_inlp, num_clfs=20):
@@ -193,7 +316,7 @@ def remove_attribute_mp(task, x_train, y_train, x_dev, y_dev, out_dir_mp, direct
     return
 
 
-def run_pipeline(task, dir_path, out_dir_inlp_dep, out_dir_mp_dep):
+def run_pipeline(task, dir_path, out_dir_inlp_dep, out_dir_mp_dep, out_dir_leace_dep):
     print(f"Removing {task} attribute.............")
 
     process_data = UDDataProcessing(dir_path + "/train/", dir_path + "/dev/", task)
@@ -203,17 +326,19 @@ def run_pipeline(task, dir_path, out_dir_inlp_dep, out_dir_mp_dep):
     print("Rank dev", np.linalg.matrix_rank(x_dev))
 
     print("Applying INLP..............")
-    remove_attribute_inlp(x_train, y_train, x_dev, y_dev, out_dir_inlp_dep)
+    # remove_attribute_inlp(x_train, y_train, x_dev, y_dev, out_dir_inlp_dep)
     directions_mp = get_directions(x_train, y_train)
 
     print("Applying Mean Projection..............")
-    remove_attribute_mp(task, x_train, y_train, x_dev, y_dev, out_dir_mp_dep, directions_mp)
+    # remove_attribute_mp(task, x_train, y_train, x_dev, y_dev, out_dir_mp_dep, directions_mp)
+
+    print("Applying LEACE..............")
+    remove_attribute_leace(task, x_train, y_train, x_dev, y_dev, out_dir_leace_dep)
 
     del x_train
     del y_train
     del x_dev
     del y_dev
-    del directions_mp
     gc.collect()
     return
 
@@ -221,22 +346,27 @@ def run_pipeline(task, dir_path, out_dir_inlp_dep, out_dir_mp_dep):
 if __name__ == "__main__":
     # Universal Dependency dataset
     # MASKED
-
     run_pipeline("dep", "datasets/ud_data_masked", "results/100k_batches_SGD_stable/masked/dep/removed_inlp",
-                 "results/100k_batches_SGD_stable/masked/dep/removed_mp")
+                 "results/100k_batches_SGD_stable/masked/dep/removed_mp",
+                 "results/100k_batches_SGD_stable/masked/dep/removed_leace")
 
     run_pipeline("pos", "datasets/ud_data_masked", "results/100k_batches_SGD_stable/masked/fpos/removed_inlp",
-                 "results/100k_batches_SGD_stable/masked/fpos/removed_mp")
+                 "results/100k_batches_SGD_stable/masked/fpos/removed_mp",
+                 "results/100k_batches_SGD_stable/masked/fpos/removed_leace")
 
     run_pipeline("tag", "datasets/ud_data_masked", "results/100k_batches_SGD_stable/masked/cpos/removed_inlp",
-                 "results/100k_batches_SGD_stable/masked/cpos/removed_mp")
+                 "results/100k_batches_SGD_stable/masked/cpos/removed_mp",
+                 "results/100k_batches_SGD_stable/masked/cpos/removed_leace")
 
     # NON-MASKED -> NORMAL
     run_pipeline("dep", "datasets/ud_data_normal", "results/100k_batches_SGD_stable/normal/dep/removed_inlp",
-                 "results/100k_batches_SGD_stable/normal/dep/removed_mp")
+                 "results/100k_batches_SGD_stable/normal/dep/removed_mp",
+                 "results/100k_batches_SGD_stable/normal/dep/removed_leace")
 
     run_pipeline("pos", "datasets/ud_data_normal", "results/100k_batches_SGD_stable/normal/fpos/removed_inlp",
-                 "results/100k_batches_SGD_stable/normal/fpos/removed_mp")
+                 "results/100k_batches_SGD_stable/normal/fpos/removed_mp",
+                 "results/100k_batches_SGD_stable/normal/fpos/removed_leace")
 
     run_pipeline("tag", "datasets/ud_data_normal", "results/100k_batches_SGD_stable/normal/cpos/removed_inlp",
-                 "results/100k_batches_SGD_stable/normal/cpos/removed_mp")
+                 "results/100k_batches_SGD_stable/normal/cpos/removed_mp",
+                 "results/100k_batches_SGD_stable/normal/cpos/removed_leace")
