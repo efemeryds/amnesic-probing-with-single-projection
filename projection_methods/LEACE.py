@@ -14,7 +14,6 @@ from typing import Callable
 import torch
 from torch import Tensor
 
-
 def optimal_linear_shrinkage(
         S_n: Tensor, n, *, inplace: bool = False
 ) -> Tensor:
