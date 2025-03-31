@@ -4,17 +4,18 @@ import gc
 import numpy as np
 import torch
 import wandb
+
 np.random.seed(10)
 
 
 class PytorchClassifier:
     def __init__(self, m: torch.nn.Module, device: str):
-        self.m = m # .to(device)
+        self.m = m  # .to(device)
         self.device = device
 
     def eval(self, x_dev: np.ndarray, y_dev: np.ndarray) -> float:
-        x_dev = torch.tensor(x_dev).float() # .to(self.device)
-        y_dev = torch.tensor(y_dev) # .to(self.device)
+        x_dev = torch.tensor(x_dev).float()  # .to(self.device)
+        y_dev = torch.tensor(y_dev)  # .to(self.device)
         test_dataset = torch.utils.data.TensorDataset(x_dev, y_dev)
         testloader = torch.utils.data.DataLoader(test_dataset, batch_size=4096,
                                                  shuffle=False)
@@ -42,8 +43,8 @@ class PytorchClassifier:
         return correct / total
 
     def get_probs(self, x: np.ndarray, y) -> np.ndarray:
-        X = torch.tensor(x).float() # .to(self.device)
-        Y = torch.tensor(y) # .to(self.device)
+        X = torch.tensor(x).float()  # .to(self.device)
+        Y = torch.tensor(y)  # .to(self.device)
         test_dataset = torch.utils.data.TensorDataset(X, Y)
         testloader = torch.utils.data.DataLoader(test_dataset, batch_size=4096,
                                                  shuffle=False)
@@ -72,7 +73,7 @@ class PytorchClassifier:
         selectivity_results = {}
         print("Starts training....")
 
-        x_train = torch.tensor(x_train) # .to(self.device)
+        x_train = torch.tensor(x_train)# .to(self.device)
         y_train = torch.tensor(y_train)# .to(self.device)
         x_dev = torch.tensor(x_dev)# .to(self.device)
         y_dev = torch.tensor(y_dev)# .to(self.device)

@@ -10,11 +10,12 @@ import pandas as pd
 import torch
 import pickle
 from sklearn.utils import shuffle
-from evaluation.helper_functions import data_projection
+from evaluation.evaluate_lm_performance import data_projection
 from transformers import BertTokenizer, BertForMaskedLM
 from evaluation.EvalTaskPerformance import EvalTaskPerformance
 from evaluation.evaluate_lm_performance import eval_lm_performance
 from evaluation.get_sentence_prediction import sentence_prediction_example
+from remove_attribute import load_leace_projection
 
 np.random.seed(10)
 
@@ -192,58 +193,197 @@ def evaluation_and_control_per_task(task: str, method_type: str, method_folder_p
     return
 
 
+def prepare_data_per_task_leace(task, original_data_path, method_folder_path):
+    dir_path_train = original_data_path + "/train/"
+    dir_path_dev = original_data_path + "/dev/"
+
+    vecs_train, labels_train, sentences_train = read_files(dir_path_train + "last_vec.npy",
+                                                           dir_path_train + f"{task}.pickle",
+                                                           dir_path_train + "tokens.pickle",
+                                                           ignore_special_tokens=True)
+
+    vecs_dev, labels_dev, sentences_dev = read_files(dir_path_dev + "last_vec.npy",
+                                                     dir_path_dev + f"{task}.pickle",
+                                                     dir_path_dev + "tokens.pickle",
+                                                     ignore_special_tokens=True)
+
+    x_train, y_train, words_train, x_dev, y_dev, words_dev = get_appropriate_data(vecs_train, labels_train,
+                                                                                  sentences_train,
+                                                                                  vecs_dev, labels_dev,
+                                                                                  sentences_dev)
+
+    meta = load_deprobing_params(method_folder_path + '/meta.json')
+    n_coordinates = int(meta['removed_directions'])
+
+    # Load the LEACE projection
+    proj_file = method_folder_path + '/trained_parameters.npz'
+    if os.path.isfile(proj_file):
+        eraser = load_leace_projection(proj_file)
+    else:
+        raise FileNotFoundError('LEACE projection file does not exist...')
+
+    del vecs_train
+    gc.collect()
+
+    return x_train, y_train, words_train, x_dev, y_dev, words_dev, sentences_dev, vecs_dev, labels_dev, eraser, n_coordinates
+
+
+def evaluation_and_control_per_task_leace(task: str, method_type: str, method_folder_path: str, original_data_path: str,
+                                          bert_tokenizer: str):
+    print(f"Task: {task}, method: {method_type}, method folder: {method_folder_path}")
+    use_cuda = torch.cuda.is_available()
+    device = torch.device("cuda" if use_cuda else "cpu")
+    print("Device: ", device)
+
+    _, tokenizer, out_embed, bias = get_lm_vals(bert_tokenizer)
+
+    model = SGDClassifier
+    loss = 'log'
+    warm_start = True
+    early_stopping = False
+    max_iter = 10000
+
+    parameters = {'warm_start': warm_start, 'loss': loss, 'random_state': 0, 'early_stopping': early_stopping,
+                  'max_iter': max_iter}
+
+    # Prepare data
+    x_train, y_train, words_train, x_dev, y_dev, words_dev, sentences_dev, vecs_dev, labels_dev, eraser, n_cords = \
+        prepare_data_per_task_leace(task, original_data_path, method_folder_path)
+
+    print("Evaluating the results - LEACE method")
+
+    # Evaluate language model performance
+    lm_results = eval_lm_performance(tokenizer, out_embed, bias, x_dev, words_dev, eraser,
+                                     n_coords=n_cords, device=device)
+
+    print('Task Control')
+    x_train_shuffled, y_train_shuffled = shuffle(x_train, y_train, random_state=0, n_samples=min(len(y_train), 100000))
+
+    x_train_no_label = eraser(torch.tensor(x_train_shuffled, dtype=torch.float32)).numpy()
+    x_dev_no_label = eraser(torch.tensor(x_dev, dtype=torch.float32)).numpy()
+
+    # Run batches 100k
+    eval_task_perf = EvalTaskPerformance(model, parameters)
+    task_results = eval_task_perf.eval_task_performance(x_train_shuffled, y_train_shuffled, x_dev, y_dev,
+                                                        x_train_no_label,
+                                                        x_dev_no_label)
+
+    all_results = {**lm_results, **task_results}
+
+    with open(f'{method_folder_path}/all_results.pkl', 'wb') as file:
+        pickle.dump(all_results, file)
+
+    # print("Sentence Prediction results")
+    # table_data = []
+    # ind = 0
+    # for i in range(int(10)):
+    #     for w, orig_y, P_y, y_label in sentence_prediction_example(tokenizer, out_embed, bias,
+    #                                                                sentences_dev[i],
+    #                                                                vecs_dev[i],
+    #                                                                labels_dev[i], eraser):
+    #         table_data.append([w, orig_y, P_y, y_label, ind])
+    #         ind += 1
+    #     table_data.append(['-', '-', '-', '-', ind])
+    #     ind += 1
+    #
+    # df = pd.DataFrame(table_data, columns=["word", "lm_word", "-p_word", "label", "index"])
+    # df.to_csv(method_folder_path + '/sentence_prediction_results.tsv', sep='\t', index=False)
+
+    del x_train
+    del y_train
+    del x_dev
+    del y_dev
+    del tokenizer
+    del bias
+    del out_embed
+    gc.collect()
+
+    return
+
+
 if __name__ == "__main__":
     ########## Universal Dependency dataset #############
     ######### MASKED ################
 
-    evaluation_and_control_per_task("dep", "inlp",
-                                    "results/100k_batches_SGD_stable/masked/dep/removed_inlp",
-                                    "datasets/ud_data_masked",
-                                    'bert-base-uncased')
+    # evaluation_and_control_per_task("dep", "inlp",
+    #                                 "results/100k_batches_SGD_stable/masked/dep/removed_inlp",
+    #                                 "datasets/ud_data_masked",
+    #                                 'bert-base-uncased')
+    #
+    # evaluation_and_control_per_task("dep", "mp", "results/100k_batches_SGD_stable/masked/dep/removed_mp",
+    #                                 "datasets/ud_data_masked",
+    #                                 'bert-base-uncased')
+    #
+    # # pos.pickle -> f-pos
+    # evaluation_and_control_per_task("pos", "inlp", "results/100k_batches_SGD_stable/masked/fpos/removed_inlp",
+    #                                 "datasets/ud_data_masked", 'bert-base-uncased')
+    # evaluation_and_control_per_task("pos", "mp", "results/100k_batches_SGD_stable/masked/fpos/removed_mp",
+    #                                 "datasets/ud_data_masked",
+    #                                 'bert-base-uncased')
+    #
+    # # tag.pickle -> c-pos
+    # evaluation_and_control_per_task("tag", "inlp",
+    #                                 "results/100k_batches_SGD_stable/masked/cpos/removed_inlp",
+    #                                 "datasets/ud_data_masked",
+    #                                 'bert-base-uncased')
+    # evaluation_and_control_per_task("tag", "mp", "results/100k_batches_SGD_stable/masked/cpos/removed_mp",
+    #                                 "datasets/ud_data_masked",
+    #                                 'bert-base-uncased')
+    #
+    # ############# NON-MASKED -> NORMAL #################
+    #
+    # evaluation_and_control_per_task("dep", "inlp",
+    #                                 "results/100k_batches_SGD_stable/normal/dep/removed_inlp",
+    #                                 "datasets/ud_data_normal",
+    #                                 'bert-base-uncased')
+    # evaluation_and_control_per_task("dep", "mp", "results/100k_batches_SGD_stable/normal/dep/removed_mp",
+    #                                 "datasets/ud_data_normal",
+    #                                 'bert-base-uncased')
+    #
+    # # pos.pickle -> f-pos
+    # evaluation_and_control_per_task("pos", "inlp", "results/100k_batches_SGD_stable/normal/fpos/removed_inlp",
+    #                                 "datasets/ud_data_normal", 'bert-base-uncased')
+    # evaluation_and_control_per_task("pos", "mp", "results/100k_batches_SGD_stable/normal/fpos/removed_mp",
+    #                                 "datasets/ud_data_normal",
+    #                                 'bert-base-uncased')
+    #
+    # # tag.pickle -> c-pos
+    # evaluation_and_control_per_task("tag", "inlp",
+    #                                 "results/100k_batches_SGD_stable/normal/cpos/removed_inlp",
+    #                                 "datasets/ud_data_normal",
+    #                                 'bert-base-uncased')
+    # evaluation_and_control_per_task("tag", "mp", "results/100k_batches_SGD_stable/normal/cpos/removed_mp",
+    #                                 "datasets/ud_data_normal",
+    #                                 'bert-base-uncased')
 
-    evaluation_and_control_per_task("dep", "mp", "results/100k_batches_SGD_stable/masked/dep/removed_mp",
-                                    "datasets/ud_data_masked",
-                                    'bert-base-uncased')
+    # LEACE MASKED
+    evaluation_and_control_per_task_leace("dep", "leace",
+                                          "results/100k_batches_SGD_stable/masked/dep/removed_leace",
+                                          "datasets/ud_data_masked",
+                                          'bert-base-uncased')
 
-    # pos.pickle -> f-pos
-    evaluation_and_control_per_task("pos", "inlp", "results/100k_batches_SGD_stable/masked/fpos/removed_inlp",
-                                    "datasets/ud_data_masked", 'bert-base-uncased')
-    evaluation_and_control_per_task("pos", "mp", "results/100k_batches_SGD_stable/masked/fpos/removed_mp",
-                                    "datasets/ud_data_masked",
-                                    'bert-base-uncased')
+    evaluation_and_control_per_task_leace("pos", "leace",
+                                          "results/100k_batches_SGD_stable/masked/fpos/removed_leace",
+                                          "datasets/ud_data_masked",
+                                          'bert-base-uncased')
 
-    # tag.pickle -> c-pos
-    evaluation_and_control_per_task("tag", "inlp",
-                                    "results/100k_batches_SGD_stable/masked/cpos/removed_inlp",
-                                    "datasets/ud_data_masked",
-                                    'bert-base-uncased')
-    evaluation_and_control_per_task("tag", "mp", "results/100k_batches_SGD_stable/masked/cpos/removed_mp",
-                                    "datasets/ud_data_masked",
-                                    'bert-base-uncased')
+    evaluation_and_control_per_task_leace("tag", "leace",
+                                          "results/100k_batches_SGD_stable/masked/cpos/removed_leace",
+                                          "datasets/ud_data_masked",
+                                          'bert-base-uncased')
 
-    ############# NON-MASKED -> NORMAL #################
+    # LEACE NON-MASKED -> NORMAL
+    evaluation_and_control_per_task_leace("dep", "leace",
+                                          "results/100k_batches_SGD_stable/normal/dep/removed_leace",
+                                          "datasets/ud_data_normal",
+                                          'bert-base-uncased')
 
-    evaluation_and_control_per_task("dep", "inlp",
-                                    "results/100k_batches_SGD_stable/normal/dep/removed_inlp",
-                                    "datasets/ud_data_normal",
-                                    'bert-base-uncased')
-    evaluation_and_control_per_task("dep", "mp", "results/100k_batches_SGD_stable/normal/dep/removed_mp",
-                                    "datasets/ud_data_normal",
-                                    'bert-base-uncased')
+    evaluation_and_control_per_task_leace("pos", "leace",
+                                          "results/100k_batches_SGD_stable/normal/fpos/removed_leace",
+                                          "datasets/ud_data_normal",
+                                          'bert-base-uncased')
 
-    # pos.pickle -> f-pos
-    evaluation_and_control_per_task("pos", "inlp", "results/100k_batches_SGD_stable/normal/fpos/removed_inlp",
-                                    "datasets/ud_data_normal", 'bert-base-uncased')
-    evaluation_and_control_per_task("pos", "mp", "results/100k_batches_SGD_stable/normal/fpos/removed_mp",
-                                    "datasets/ud_data_normal",
-                                    'bert-base-uncased')
-
-    # tag.pickle -> c-pos
-    evaluation_and_control_per_task("tag", "inlp",
-                                    "results/100k_batches_SGD_stable/normal/cpos/removed_inlp",
-                                    "datasets/ud_data_normal",
-                                    'bert-base-uncased')
-    evaluation_and_control_per_task("tag", "mp", "results/100k_batches_SGD_stable/normal/cpos/removed_mp",
-                                    "datasets/ud_data_normal",
-                                    'bert-base-uncased')
-
+    evaluation_and_control_per_task_leace("tag", "leace",
+                                          "results/100k_batches_SGD_stable/normal/cpos/removed_leace",
+                                          "datasets/ud_data_normal",
+                                          'bert-base-uncased')

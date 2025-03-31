@@ -75,9 +75,9 @@ class SelectivityControl:
         x_train = np.concatenate([x_train, y_labels_train.reshape(-1, 1)], axis=-1)
         x_dev = np.concatenate([x_dev, y_labels_dev.reshape(-1, 1)], axis=-1)
 
-        use_cuda = torch.cuda.is_available()
-        device = torch.device("cuda" if use_cuda else "cpu")
-
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print("Using device:", device)
+        torch.cuda.empty_cache()
         net = RebiasClassifier(debias=debias, num_bias_labels=len(all_labels), classifier=self.word_embeddings,
                                bias=self.bias)
 
@@ -103,5 +103,6 @@ class SelectivityControl:
         del y_labels_dev
         del net
         del selectivity_results
+        torch.cuda.empty_cache()
         gc.collect()
         return
