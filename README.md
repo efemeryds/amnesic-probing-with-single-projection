@@ -12,6 +12,7 @@ This repository contains additional code as well as original or modified code fr
 - https://github.com/yanaiela/amnesic_probing
 - https://github.com/shauli-ravfogel/nullspace_projection
 - https://github.com/tue-alga/debias-mean-projection
+- https://github.com/EleutherAI/concept-erasure
 
 ## Setup preparation
 - This code has been tested using Python 3.7 and the conda environment on Linux. However, some modifications can allow the code to run in Python3.10, which is not currently included in this version of the project.
