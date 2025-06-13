@@ -97,6 +97,7 @@ Once the target language capability has been removed, we also want to carry out 
 c) **Running baseline selectivity**
 
 The selectivity check is computationally demanding. To perform basic selectivity after information removal, we need to run the script in the *get_vanilla_selectivity.py* file.
+
 d) **Running selectivity after the modifications**
 
 To get the selectivity after injecting the gold information back into the embedding, we run a script in the *get_selectivity_control.py* file.
